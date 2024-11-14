@@ -13,7 +13,12 @@ public class UserController {
 
     @GetMapping("/dashboard")
     public String dashBoard(){
-        return "Giriş başarılı!";
+        return "Admin girişi başarılı!";
+    }
+
+    @GetMapping("/panel")
+    public String userBoard(){
+        return "User giriş başarılı!";
     }
 
 }
