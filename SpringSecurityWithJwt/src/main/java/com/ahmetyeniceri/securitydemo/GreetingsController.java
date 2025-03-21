@@ -77,4 +77,26 @@ public class GreetingsController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/profile")
+    public ResponseEntity<?> getUserProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("Authentication: " + authentication);
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        }
+
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("username", userDetails.getUsername());
+        profile.put("roles", userDetails.getAuthorities().stream()
+                .map(item -> item.getAuthority())
+                .collect(Collectors.toList())
+        );
+        profile.put("message", "This is user-spesific content form backend");
+
+        return ResponseEntity.ok(profile);
+    }
+
 }

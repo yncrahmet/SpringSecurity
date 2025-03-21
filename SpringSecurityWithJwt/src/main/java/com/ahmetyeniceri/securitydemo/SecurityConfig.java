@@ -20,8 +20,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.sql.DataSource;
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -42,25 +46,34 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-            .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                    .requestMatchers("/h2-console/**", "/signin").permitAll()
-                    .requestMatchers("/api/public/**").permitAll()
-                    .anyRequest().authenticated())
-            .sessionManagement(
-                session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS)
-            )
-            .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
-            //.httpBasic(withDefaults());
-            .headers(headers -> headers
-                .frameOptions(frameOptions -> frameOptions
-                        .sameOrigin()))
-            .csrf(csrf -> csrf.disable())
-            .addFilterBefore(authenticationJwtTokenFilter(),
-                UsernamePasswordAuthenticationFilter.class);
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // CORS'u aktif et
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(authorizeRequests -> authorizeRequests
+                        .requestMatchers("/h2-console/**", "/signin").permitAll()
+                        .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll() // OPTIONS isteklerini serbest bırak
+                        .anyRequest().authenticated())
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+                .headers(headers -> headers
+                        .frameOptions(frameOptions -> frameOptions.sameOrigin()))
+                .addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean
@@ -71,17 +84,14 @@ public class SecurityConfig {
     @Bean
     public CommandLineRunner initData(UserDetailsService userDetailsService) {
         return args -> {
-
             JdbcUserDetailsManager manager = (JdbcUserDetailsManager) userDetailsService;
             JdbcUserDetailsManager userDetailsManager = new JdbcUserDetailsManager(dataSource);
-
 
             if (!manager.userExists("user1")) {
                 UserDetails user1 = User.withUsername("user1")
                         .password(passwordEncoder().encode("password1"))
                         .roles("USER")
                         .build();
-
                 userDetailsManager.createUser(user1);
             }
 
@@ -90,15 +100,13 @@ public class SecurityConfig {
                         .password(passwordEncoder().encode("adminPass"))
                         .roles("ADMIN")
                         .build();
-
                 userDetailsManager.createUser(admin);
             }
-
         };
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder(){
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
