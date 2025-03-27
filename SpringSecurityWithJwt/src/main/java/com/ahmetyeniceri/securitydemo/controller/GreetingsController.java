@@ -1,8 +1,11 @@
-package com.ahmetyeniceri.securitydemo;
+package com.ahmetyeniceri.securitydemo.controller;
 
 import com.ahmetyeniceri.securitydemo.dto.LoginRequest;
 import com.ahmetyeniceri.securitydemo.dto.LoginResponse;
+import com.ahmetyeniceri.securitydemo.jwt.AuthTokenFilter;
 import com.ahmetyeniceri.securitydemo.jwt.JwtUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -10,8 +13,13 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -22,17 +30,47 @@ import java.util.stream.Collectors;
 @RestController
 public class GreetingsController {
 
+    private static final Logger logger = LoggerFactory.getLogger(GreetingsController.class);
+
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
+    private final UserDetailsService userDetailsService;
 
-    public GreetingsController(JwtUtils jwtUtils, AuthenticationManager authenticationManager) {
+    public GreetingsController(JwtUtils jwtUtils, AuthenticationManager authenticationManager, UserDetailsService userDetailsService) {
         this.jwtUtils = jwtUtils;
         this.authenticationManager = authenticationManager;
+        this.userDetailsService = userDetailsService;
     }
 
-    @GetMapping("/hello")
-    public String sayHello() {
-        return "Hello!";
+    @GetMapping("/google-callback")
+    public Map<String, String> handleGoogleCallback(@RequestParam(value = "email", required = false) String email) {
+        if (email == null || email.isEmpty()) {
+            throw new IllegalStateException("Email parameter is missing in the redirect URL");
+        }
+
+        UserDetails userDetails = User.withUsername(email)
+                .password("")
+                .authorities("ROLE_USER")
+                .build();
+
+        if (userDetailsService instanceof JdbcUserDetailsManager) {
+            JdbcUserDetailsManager manager = (JdbcUserDetailsManager) userDetailsService;
+            if (!manager.userExists(email)) {
+                manager.createUser(userDetails);
+                logger.info("User {} created in the database", email);
+            }
+        }
+
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        String jwt = jwtUtils.generateTokenFromUsername(userDetails);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("token", jwt);
+        response.put("username", email);
+        return response;
     }
 
     @PreAuthorize("hasRole('USER')")
