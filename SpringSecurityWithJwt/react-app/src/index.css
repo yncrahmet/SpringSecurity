@@ -122,3 +122,26 @@ button:hover {
   word-break: break-all;
   padding: 0 20px;
 }
+
+.or-divider {
+  margin: 15px 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.google-login-button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background-color: #ec1f0f;
+  color: white;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.google-login-button:hover {
+  background-color: #ba2619;
+}

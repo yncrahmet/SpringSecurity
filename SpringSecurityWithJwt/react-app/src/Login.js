@@ -1,4 +1,5 @@
-import React, {useState} from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const Login = () => {
     const [username, setUsername] = useState("");
@@ -6,6 +7,37 @@ const Login = () => {
     const [message, setMessage] = useState("");
     const [jwt, setJwt] = useState("");
     const [profile, setProfile] = useState(null);
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const email = params.get("email");
+        if (email) {
+            fetch(`http://localhost:8080/google-callback?email=${email}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            })
+                .then((response) => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error("Failed to fetch token from /google-callback");
+                    }
+                })
+                .then(async (data) => {
+                    setJwt(data.token);
+                    setMessage("Google login successful");
+                    await fetchUserProfile(data.token);
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                    setMessage("An error occurred during Google login: " + error.message);
+                });
+        }
+    }, [location]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -20,10 +52,9 @@ const Login = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                console.log(data);
                 setJwt(data.jwtToken);
                 setMessage("Login successful");
-                fetchUserProfile(data.jwtToken);
+                await fetchUserProfile(data.jwtToken);
             } else {
                 setMessage("Login failed. Please check your credentials.");
             }
@@ -31,6 +62,10 @@ const Login = () => {
             console.log("Error: " + error);
             setMessage("An error occurred. Please try again.");
         }
+    };
+
+    const handleGoogleLogin = () => {
+        window.location.href = "http://localhost:8080/oauth2/authorization/google";
     };
 
     const fetchUserProfile = async (token) => {
@@ -44,7 +79,6 @@ const Login = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                console.log(data);
                 setProfile(data);
             } else {
                 setMessage("Failed to fetch the profile.");
@@ -81,6 +115,10 @@ const Login = () => {
                         </div>
                         <button type="submit">Login</button>
                     </form>
+                    <p className="or-divider">OR</p>
+                    <button onClick={handleGoogleLogin} className="google-login-button">
+                        Login with Google
+                    </button>
                 </>
             ) : (
                 <div className="profile-card">

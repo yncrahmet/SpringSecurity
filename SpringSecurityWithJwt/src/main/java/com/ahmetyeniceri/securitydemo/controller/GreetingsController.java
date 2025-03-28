@@ -70,6 +70,7 @@ public class GreetingsController {
         Map<String, String> response = new HashMap<>();
         response.put("token", jwt);
         response.put("username", email);
+
         return response;
     }
 
